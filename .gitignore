@@ -1,0 +1,27 @@
+# Patient imaging can contain identifiers. Keep the folders, never the pixels.
+data/raw/**
+data/sorted/**
+data/masks/**
+
+!data/raw/
+!data/raw/**/
+!data/raw/**/.gitkeep
+
+!data/sorted/
+!data/sorted/**/
+!data/sorted/**/.gitkeep
+
+!data/masks/
+!data/masks/**/
+!data/masks/**/.gitkeep
+
+*.dcm
+*.DCM
+*.dicom
+*.nii
+*.nii.gz
+*.nrrd
+
+.venv/
+__pycache__/
+*.pyc

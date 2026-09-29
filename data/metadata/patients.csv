@@ -1,0 +1,2 @@
+patient_id,timepoint,ct_slices,rtstruct,rtdose,rtplan,outcome,source_note
+P001,pretreatment,129/130,yes,no,no,oligometastatic,planning CT plus four ROIs; instance 108 unreadable; CTV lenfatik has a contour on that plane
