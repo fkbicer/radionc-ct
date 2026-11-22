@@ -57,3 +57,10 @@ def test_metrics_are_sane():
     m = compute_metrics(y, perfect)
     assert m["auc"] == 1.0 and m["balanced_accuracy"] == 1.0 and m["sensitivity"] == 1.0
     assert expected_calibration_error(y, perfect) < 0.15
+
+
+def test_xgboost_is_usable_when_installed(config, cohort):
+    pytest.importorskip("xgboost")
+    X, y = cohort
+    auc, _, _ = _auc(config, X, y, "xgboost")
+    assert auc > 0.7
