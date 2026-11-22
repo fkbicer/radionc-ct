@@ -27,6 +27,7 @@ def main(argv=None):
     p.add_argument("--models", help="comma-separated, default from config")
     p.add_argument("--sets", help="comma-separated ladder sets, e.g. M1,M6")
     p.add_argument("--repeats", type=int, help="override validation.repeats")
+    p.add_argument("--permutations", type=int, default=0, help="label permutations per configuration (report: 1000)")
 
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
@@ -75,6 +76,7 @@ def main(argv=None):
             cfg, X, y, icc,
             models=args.models.split(",") if args.models else None,
             sets=args.sets.split(",") if args.sets else None,
+            permutations=args.permutations,
         )
 
 

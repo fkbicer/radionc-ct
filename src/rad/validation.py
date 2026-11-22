@@ -1,4 +1,4 @@
-"""Repeated, stratified, nested cross-validation and basic metrics (report 4.8).
+"""Repeated, stratified, nested cross-validation and its statistics (report 4.8).
 
 The outer loop only estimates performance. Inside each outer training set an
 inner loop picks hyperparameters; scaling, imputation, feature selection and the
@@ -122,3 +122,62 @@ def summarize(y, oof):
         summary[key] = float(np.nanmean(values))
         summary[f"{key}_sd"] = float(np.nanstd(values))
     return summary, np.nanmean(oof, axis=0)
+
+
+def bootstrap_ci(y, p, metric=roc_auc_score, n=1000, seed=0, alpha=0.05):
+    """Patient-level bootstrap percentile interval of ``metric(y, p)``."""
+    y, p = np.asarray(y), np.asarray(p)
+    rng = np.random.default_rng(seed)
+    values = []
+    for _ in range(n):
+        idx = rng.integers(0, len(y), len(y))
+        if y[idx].min() == y[idx].max():
+            continue
+        values.append(metric(y[idx], p[idx]))
+    lo, hi = np.percentile(values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(lo), float(hi)
+
+
+def paired_bootstrap_auc(y, p_a, p_b, n=1000, seed=0):
+    """AUC(a) - AUC(b) on the same patients: difference, 95% interval, two-sided p."""
+    y, p_a, p_b = np.asarray(y), np.asarray(p_a), np.asarray(p_b)
+    rng = np.random.default_rng(seed)
+    diffs = []
+    for _ in range(n):
+        idx = rng.integers(0, len(y), len(y))
+        if y[idx].min() == y[idx].max():
+            continue
+        diffs.append(roc_auc_score(y[idx], p_a[idx]) - roc_auc_score(y[idx], p_b[idx]))
+    diffs = np.asarray(diffs)
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    p_value = min(1.0, 2 * min((diffs <= 0).mean(), (diffs >= 0).mean()))
+    return float(roc_auc_score(y, p_a) - roc_auc_score(y, p_b)), float(lo), float(hi), float(p_value)
+
+
+def holm(p_values):
+    """Holm step-down adjusted p-values, in the input order."""
+    p = np.asarray(p_values, dtype=float)
+    order = np.argsort(p)
+    adjusted = np.empty_like(p)
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, (len(p) - rank) * p[i])
+        adjusted[i] = min(1.0, running)
+    return adjusted.tolist()
+
+
+def permutation_test(X, y, model_name, cfg, icc, observed_auc, n_perm, seed=0):
+    """The whole pipeline (selection included) is re-run on shuffled labels.
+
+    The null uses ``permutation_repeats`` CV repeats, fewer than the observed
+    estimate; its AUC is therefore noisier, which makes the test conservative.
+    """
+    rng = np.random.default_rng(seed)
+    repeats = cfg["validation"]["permutation_repeats"]
+    null = []
+    for i in range(n_perm):
+        shuffled = rng.permutation(np.asarray(y))
+        result = run_nested_cv(X, shuffled, model_name, cfg, icc, seed=seed + 10_000 + i, repeats=repeats)
+        null.append(float(np.mean([roc_auc_score(shuffled, row) for row in result.oof])))
+    null = np.asarray(null)
+    return float((1 + (null >= observed_auc).sum()) / (1 + n_perm)), null
