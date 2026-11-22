@@ -23,6 +23,11 @@ def main(argv=None):
 
     sub.add_parser("select", help="show which features the selection chain keeps on the whole dataset (inspection only)")
 
+    p = sub.add_parser("run", help="model ladder x models with repeated nested CV")
+    p.add_argument("--models", help="comma-separated, default from config")
+    p.add_argument("--sets", help="comma-separated ladder sets, e.g. M1,M6")
+    p.add_argument("--repeats", type=int, help="override validation.repeats")
+
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
 
@@ -58,6 +63,19 @@ def main(argv=None):
               "not a performance estimate):")
         for name in prep.selected_features_:
             print("  ", name)
+    elif args.command == "run":
+        from .experiment import load_inputs, run_experiment
+
+        if args.repeats:
+            cfg["validation"]["repeats"] = args.repeats
+        X, y, icc, notes = load_inputs(cfg)
+        for note in notes:
+            print(note)
+        run_experiment(
+            cfg, X, y, icc,
+            models=args.models.split(",") if args.models else None,
+            sets=args.sets.split(",") if args.sets else None,
+        )
 
 
 if __name__ == "__main__":

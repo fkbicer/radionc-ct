@@ -17,6 +17,7 @@ data/masks/**
 
 # Derived feature tables stay local (report 7.3: the repository holds code only).
 data/features/**
+outputs/**
 
 *.dcm
 *.DCM

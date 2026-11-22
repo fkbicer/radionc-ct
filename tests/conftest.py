@@ -12,7 +12,7 @@ CONFIG = {
     "selection": SELECTION,
     "validation": {"outer_folds": 4, "repeats": 2, "inner_folds": 3, "bootstrap": 200,
                    "permutation_repeats": 1, "n_jobs": 1},
-    "models": ["logreg", "svm", "rf"],
+    "models": ["logreg"],
 }
 
 
