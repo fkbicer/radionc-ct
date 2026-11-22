@@ -1,3 +1,5 @@
+seed: 42
+
 # Paths are relative to the project root.
 # Report references: 4.2 DICOM, 4.3 preprocessing, 4.4 radiomic extraction, 4.5 clinical, Appendix B.
 
@@ -5,6 +7,7 @@ paths:
   raw_root: data/raw                      # data/raw/<patient_id>/inbox/*.dcm
   features_dir: data/features             # extraction output (git-ignored)
   clinical_csv: lung1_stage3_cohort.csv
+  outputs_dir: outputs                    # one sub-folder per run (git-ignored)
 
 dicom:
   inbox_subdir: inbox
@@ -78,3 +81,20 @@ selection:                                # re-learned inside every training fol
   enet:
     C: 0.1
     l1_ratio: 0.5
+
+models: [logreg]                          # svm, rf, xgboost are added in later PRs
+
+# Model ladder (report Table 8). Lung1 has no PET, so M3/M4 do not exist here.
+# groups: "clin" or an ROI name from `rois`. A set whose group is missing is skipped.
+ladder:
+  M0: {prior: true}
+  M1: {groups: [clin]}
+  M2: {groups: [gtv]}
+  M5: {groups: [gtv, periphery]}
+  M6: {groups: [gtv, periphery, clin]}
+
+validation:
+  outer_folds: 5
+  repeats: 10                             # report suggests 20 for the final run
+  inner_folds: 3
+  n_jobs: -1

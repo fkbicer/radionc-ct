@@ -37,6 +37,7 @@ python -m rad extract --workers 4         # data/raw altındaki hepsi, kesilirse
 python -m rad combine                     # özet tabloları yeniden üretir
 python -m rad dataset                     # klinik + etiket + radyomik -> data/features/dataset.csv
 python -m rad select                      # seçim zincirinin tüm veride neyi tuttuğunu gösterir (yalnızca inceleme)
+python -m rad run                         # model merdiveni x modeller, tekrarlı iç içe CV -> outputs/<zaman>/
 pytest
 ```
 
@@ -66,6 +67,14 @@ pytest
 Radyomik sütunlar sırayla: eksik oranı filtresi → medyan doldurma → neredeyse sabit filtresi → (ICC kararlılık filtresi, ICC tablosu verilirse) → z-skoru → korelasyon kümeleri (|ρ|>0.9; her kümeden etiketle en çok ilişkili olan kalır) → elastic-net ile en çok 15 özellik. Klinik sütunlar (`clin__*`) yalnızca doldurulur ve ölçeklenir.
 
 Hepsi scikit-learn dönüştürücüsüdür ve yalnızca `fit` sırasında öğrenir; bir eğitim katında `fit` edildiğinde test katı hiçbir aşamayı etkilemez. `python -m rad select` zinciri tüm veride çalıştırıp seçilenleri yazdırır: bu yalnızca inceleme içindir, performans tahmini değildir. Model karşılaştırması sonraki PR'larda, seçim her katta yeniden yapılarak yapılacak.
+
+## Model ve doğrulama (rapor 4.7–4.8) — lojistik regresyon
+
+`python -m rad run` her merdiven kümesi (M0 önsel, M1 klinik, M2 GTV, M5 GTV+periferi, M6 hepsi) için elastic-net lojistik regresyonu **tekrarlı, katmanlı, iç içe çapraz doğrulama** ile değerlendirir (5 kat × 10 tekrar, `configs/default.yaml`). Radyomik henüz çıkarılmadıysa yalnızca radyomik grubu gerektirmeyen kümeler (M0, M1) çalışır; eksik gruplu küme başka adla değil, atlanarak geçilir.
+
+- Dış döngü yalnızca performansı ölçer. Her dış eğitim kümesinde iç döngü `C` ve `l1_ratio` seçer; doldurma, ölçekleme, özellik seçimi ve model o kümede yeniden öğrenilir. Bölme hasta düzeyindedir.
+- Çıktılar (`outputs/<zaman>/`, git dışı): `metrics.csv` (AUC, dengeli doğruluk, makro-F1, Brier, ECE, duyarlılık, özgüllük; tekrarlar üzerinde ortalama ve sd), `oof_predictions.csv`, `selected_features.csv` (kat başına seçilme sıklığı), `run.json` (yapılandırma, seed, git commit, sürümler).
+- Güven aralığı, permütasyon testi ve küme karşılaştırması sonraki PR'larda; SVM, random forest ve XGBoost da ayrı PR'larda eklenecek.
 
 ## Önceki script'e göre değişenler
 
