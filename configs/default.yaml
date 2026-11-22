@@ -1,9 +1,10 @@
-# Extraction settings. Paths are relative to the project root.
-# Report references: 4.2 DICOM, 4.3 preprocessing, 4.4 radiomic extraction, Appendix B.
+# Paths are relative to the project root.
+# Report references: 4.2 DICOM, 4.3 preprocessing, 4.4 radiomic extraction, 4.5 clinical, Appendix B.
 
 paths:
   raw_root: data/raw                      # data/raw/<patient_id>/inbox/*.dcm
   features_dir: data/features             # extraction output (git-ignored)
+  clinical_csv: lung1_stage3_cohort.csv
 
 dicom:
   inbox_subdir: inbox
@@ -54,3 +55,14 @@ radiomics:
       glszm:
       ngtdm:
       gldm:
+
+clinical:
+  id_column: PatientID
+  label_column: label_2yr
+  time_column: Survival.time              # label generation only, never a feature
+  event_column: deadstatus.event          # label generation only, never a feature
+  horizon_days: 730
+  numeric: [age, clinical.T.Stage, Clinical.N.Stage]
+  categorical: [gender, Histology]
+  # Clinical.M.Stage (282/287 zero) and Overall.Stage (derived from T and N)
+  # are intentionally not used.
