@@ -10,6 +10,7 @@ from rad.validation import (
     compute_metrics,
     expected_calibration_error,
     holm,
+    net_benefit,
     paired_bootstrap_auc,
     permutation_test,
     run_nested_cv,
@@ -110,3 +111,9 @@ def test_permutation_test_p_value_ranges(config):
     auc, _, _ = _auc(config, X, y, "logreg")
     p, null = permutation_test(X, y, "logreg", config, None, auc, n_perm=6, seed=1)
     assert p <= 2 / 7 and 0.3 < null.mean() < 0.7
+
+
+def test_net_benefit_of_perfect_model_beats_treat_all():
+    y = np.array([0, 0, 1, 1, 1, 0, 1, 0])
+    model, all_ = net_benefit(y, y.astype(float), [0.2, 0.5])
+    assert all(m >= a for m, a in zip(model, all_))

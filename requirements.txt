@@ -4,6 +4,8 @@ scipy>=1.9
 scikit-learn>=1.2
 xgboost>=1.7
 joblib>=1.2
+matplotlib>=3.6
+# optional, SHAP values for tree models: pip install shap
 pydicom>=2.4
 pyradiomics==3.0.1
 SimpleITK>=2.2

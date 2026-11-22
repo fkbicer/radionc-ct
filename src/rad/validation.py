@@ -181,3 +181,19 @@ def permutation_test(X, y, model_name, cfg, icc, observed_auc, n_perm, seed=0):
         null.append(float(np.mean([roc_auc_score(shuffled, row) for row in result.oof])))
     null = np.asarray(null)
     return float((1 + (null >= observed_auc).sum()) / (1 + n_perm)), null
+
+
+def net_benefit(y, p, thresholds):
+    """Decision-curve net benefit of the model and of treating everyone."""
+    y, p = np.asarray(y), np.asarray(p)
+    n = len(y)
+    prevalence = y.mean()
+    model, treat_all = [], []
+    for t in thresholds:
+        pred = p >= t
+        tp = (pred & (y == 1)).sum() / n
+        fp = (pred & (y == 0)).sum() / n
+        weight = t / (1 - t)
+        model.append(float(tp - fp * weight))
+        treat_all.append(float(prevalence - (1 - prevalence) * weight))
+    return model, treat_all
