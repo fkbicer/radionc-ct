@@ -1,6 +1,6 @@
 # radionc-ct
 
-Tedavi öncesi planlama BT'sinden radyomik özellik çıkarımı. Hasta klasörleri çalışma kimliği taşır (`P001`, `LUNG1-001`); ad, protokol numarası veya doğum tarihi klasör adına yazılmaz. Hasta görüntüleri ve türetilmiş tablolar git'e girmez.
+Tedavi öncesi planlama BT'sinden radyomik özellik çıkarımı ve klinik değişkenlerle birleştirme. Hasta klasörleri çalışma kimliği taşır (`P001`, `LUNG1-001`); ad, protokol numarası veya doğum tarihi klasör adına yazılmaz. Hasta görüntüleri ve türetilmiş tablolar git'e girmez.
 
 ## Nereye koyulur
 
@@ -35,6 +35,7 @@ pip install -e .
 python -m rad extract --patients P001     # önce tek hasta
 python -m rad extract --workers 4         # data/raw altındaki hepsi, kesilirse devam eder
 python -m rad combine                     # özet tabloları yeniden üretir
+python -m rad dataset                     # klinik + etiket + radyomik -> data/features/dataset.csv
 pytest
 ```
 
@@ -49,6 +50,16 @@ pytest
 - **Maske denetimi:** boş maske, hacim aralığı, kesit ızgarası dışında kalan poligonlar, GTV–periferi çakışması.
 - **PyRadiomics:** shape, firstorder, GLCM, GLRLM, GLSZM, NGTDM, GLDM; 2 mm izotropik B-spline yeniden örnekleme, `binWidth=25`. Hepsi `configs/default.yaml` içinde (rapor Ek B). Sütunlar `<roi>__<özellik>`.
 
+## Klinik veri ve etiket (rapor 4.5, FR7)
+
+`lung1_stage3_cohort.csv` (yolu `paths.clinical_csv`) hasta başına bir satır; `python -m rad dataset` onu radyomikle birleştirip `data/features/dataset.csv` yazar (git dışı) ve sayıları yazdırır. Radyomik henüz çıkarılmadıysa yalnızca klinik sütunlar yazılır.
+
+- **Özellikler:** yaş, T, N, cinsiyet, histoloji; sütunlar `clin__*`, radyomik sütunlar `<roi>__*`. Eksik değerler bu aşamada **doldurulmaz**; eğitim katında doldurulacaktır.
+- **Etiket:** `label_2yr` (1 = 730 günden önce öldü, 0 = 730 günden uzun izlendi). Etiket, `Survival.time` ve `deadstatus.event` ile yeniden hesaplanıp karşılaştırılır; çelişki varsa koşu durur. 730 günden önce sansürlenen hasta etiketlenemez ve dışarıda kalır (Lung1 stage III'te böyle hasta yok).
+- **Sızıntı koruması:** `Survival.time`, `deadstatus.event` ve etiket sütunu özellik olarak verilirse `LeakageError` fırlatılır.
+- **Kullanılmayanlar:** `Clinical.M.Stage` (287 hastanın 282'sinde sıfır) ve `Overall.Stage` (T ve N'den türetilmiş, bilgi eklemez).
+- **Birleştirme:** hasta kimliği ile iç birleşim. Etiketi olup radyomiği olmayan ve radyomiği olup etiketi olmayan hasta sayıları yazdırılır (kimlikler değil, yalnızca sayılar).
+
 ## Önceki script'e göre değişenler
 
 - **Kontur doldurma düzeltildi.** Eski yöntem (PIL poligon) sınır piksellerini de dolduruyordu; bu, hacmi yaklaşık %9 şişiriyor ve şekil özelliklerini bozuyordu. Artık piksel merkezi poligonun içindeyse maskeye girer (fantom testinde teorik hacimden %2'den az sapar).
@@ -61,4 +72,4 @@ pytest
 
 ## Testler
 
-`pytest`: HU dönüşümü, piksel↔mm dönüşümü, fantom küre hacmi, iç içe poligon, halka kalınlığı, kimlik denetimi, ROI adı eşleme, hasta keşfi ve tablo birleştirme. PyRadiomics fantom testleri (küre hacmi, sabit bölgede entropi 0) `pyradiomics` ve `SimpleITK` kuruluysa çalışır, değilse atlanır. DICOM okuma gerçek veriyle denenmelidir.
+`pytest`: HU dönüşümü, piksel↔mm dönüşümü, fantom küre hacmi, iç içe poligon, halka kalınlığı, kimlik denetimi, ROI adı eşleme, hasta keşfi ve tablo birleştirme. Klinik tablo, etiket kuralı, sızıntı koruması, birleştirme ve gerçek Lung1 tablosunun kontrolü de test edilir. PyRadiomics fantom testleri (küre hacmi, sabit bölgede entropi 0) `pyradiomics` ve `SimpleITK` kuruluysa çalışır, değilse atlanır. DICOM okuma gerçek veriyle denenmelidir.
