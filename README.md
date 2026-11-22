@@ -37,7 +37,9 @@ python -m rad extract --workers 4         # data/raw altındaki hepsi, kesilirse
 python -m rad combine                     # özet tabloları yeniden üretir
 python -m rad dataset                     # klinik + etiket + radyomik -> data/features/dataset.csv
 python -m rad select                      # seçim zincirinin tüm veride neyi tuttuğunu gösterir (yalnızca inceleme)
-python -m rad run                         # model merdiveni x modeller, tekrarlı iç içe CV -> outputs/<zaman>/
+python -m rad run                         # model merdiveni x modeller, tekrarlı iç içe CV -> outputs/<zaman>/ (+ report.html)
+python -m rad explain --set M6 --model logreg   # katsayılar / SHAP
+python -m rad report                      # son koşunun report.html dosyasını yeniden üretir
 pytest
 ```
 

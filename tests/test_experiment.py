@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 
 from rad.config import load_config
+from rad.explain import explain
+from rad.report import build_report
 from rad.experiment import load_inputs, run_experiment
 
 REPO = Path(__file__).resolve().parents[1]
@@ -70,6 +72,10 @@ def test_full_ladder_with_statistics(tmp_path):
     comparisons = pd.read_csv(out / "comparisons.csv")
     assert {"M2", "M6"} <= set(comparisons["a"]) and (comparisons["p_holm"] >= comparisons["p"]).all()
 
+    table, _ = explain(cfg, X, y, icc, "M2", "logreg", out)
+    assert len(table) >= 1 and table["kind"].iloc[0] == "coefficient"
+    report = build_report(out)
+    assert report.exists() and "<img" in report.read_text()
     assert (out / "run.json").exists() and (out / "oof_predictions.csv").exists()
 
 
