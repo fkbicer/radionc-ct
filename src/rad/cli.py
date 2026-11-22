@@ -21,6 +21,8 @@ def main(argv=None):
 
     sub.add_parser("dataset", help="join clinical table, label and radiomics; write data/features/dataset.csv")
 
+    sub.add_parser("select", help="show which features the selection chain keeps on the whole dataset (inspection only)")
+
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
 
@@ -46,6 +48,16 @@ def main(argv=None):
         n_rad = sum(not c.startswith("clin__") for c in X.columns)
         print(f"{len(X)} patients, {n_rad} radiomic + {X.shape[1] - n_rad} clinical features, "
               f"classes {y.value_counts().sort_index().to_dict()} -> {out}")
+    elif args.command == "select":
+        from .clinical import build_dataset
+        from .selection import build_preprocessor
+
+        X, y, _ = build_dataset(cfg)
+        prep = build_preprocessor(cfg["selection"], seed=cfg["selection"]["seed"]).fit(X, y.to_numpy())
+        print(f"{X.shape[1]} features in -> {len(prep.selected_features_)} kept (whole dataset; for inspection, "
+              "not a performance estimate):")
+        for name in prep.selected_features_:
+            print("  ", name)
 
 
 if __name__ == "__main__":
