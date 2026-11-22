@@ -13,9 +13,10 @@ def _auc(cfg, X, y, model):
     return summary["auc"], pooled, result
 
 
-def test_signal_is_found(config, cohort):
+@pytest.mark.parametrize("model", ["logreg", "svm"])
+def test_signal_is_found(config, cohort, model):
     X, y = cohort
-    auc, _, _ = _auc(config, X, y, "logreg")
+    auc, _, _ = _auc(config, X, y, model)
     assert auc > 0.75
 
 

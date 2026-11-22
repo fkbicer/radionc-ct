@@ -82,7 +82,7 @@ selection:                                # re-learned inside every training fol
     C: 0.1
     l1_ratio: 0.5
 
-models: [logreg]                          # svm, rf, xgboost are added in later PRs
+models: [logreg, svm]                     # rf, xgboost are added in later PRs
 
 # Model ladder (report Table 8). Lung1 has no PET, so M3/M4 do not exist here.
 # groups: "clin" or an ROI name from `rois`. A set whose group is missing is skipped.

@@ -68,13 +68,14 @@ Radyomik sütunlar sırayla: eksik oranı filtresi → medyan doldurma → nered
 
 Hepsi scikit-learn dönüştürücüsüdür ve yalnızca `fit` sırasında öğrenir; bir eğitim katında `fit` edildiğinde test katı hiçbir aşamayı etkilemez. `python -m rad select` zinciri tüm veride çalıştırıp seçilenleri yazdırır: bu yalnızca inceleme içindir, performans tahmini değildir. Model karşılaştırması sonraki PR'larda, seçim her katta yeniden yapılarak yapılacak.
 
-## Model ve doğrulama (rapor 4.7–4.8) — lojistik regresyon
+## Model ve doğrulama (rapor 4.7–4.8) — lojistik regresyon ve doğrusal SVM
 
 `python -m rad run` her merdiven kümesi (M0 önsel, M1 klinik, M2 GTV, M5 GTV+periferi, M6 hepsi) için elastic-net lojistik regresyonu **tekrarlı, katmanlı, iç içe çapraz doğrulama** ile değerlendirir (5 kat × 10 tekrar, `configs/default.yaml`). Radyomik henüz çıkarılmadıysa yalnızca radyomik grubu gerektirmeyen kümeler (M0, M1) çalışır; eksik gruplu küme başka adla değil, atlanarak geçilir.
 
 - Dış döngü yalnızca performansı ölçer. Her dış eğitim kümesinde iç döngü `C` ve `l1_ratio` seçer; doldurma, ölçekleme, özellik seçimi ve model o kümede yeniden öğrenilir. Bölme hasta düzeyindedir.
 - Çıktılar (`outputs/<zaman>/`, git dışı): `metrics.csv` (AUC, dengeli doğruluk, makro-F1, Brier, ECE, duyarlılık, özgüllük; tekrarlar üzerinde ortalama ve sd), `oof_predictions.csv`, `selected_features.csv` (kat başına seçilme sıklığı), `run.json` (yapılandırma, seed, git commit, sürümler).
-- Güven aralığı, permütasyon testi ve küme karşılaştırması sonraki PR'larda; SVM, random forest ve XGBoost da ayrı PR'larda eklenecek.
+- **Modeller:** elastic-net lojistik regresyon (`C`, `l1_ratio` ızgarası) ve doğrusal SVM (`C` ızgarası; olasılıklar Platt kalibrasyonuyla, `CalibratedClassifierCV`). Her iki model sınıf ağırlıklıdır.
+- Güven aralığı, permütasyon testi ve küme karşılaştırması sonraki PR'larda; random forest ve XGBoost da ayrı PR'larda eklenecek.
 
 ## Önceki script'e göre değişenler
 
