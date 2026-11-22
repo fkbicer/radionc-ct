@@ -36,6 +36,7 @@ python -m rad extract --patients P001     # önce tek hasta
 python -m rad extract --workers 4         # data/raw altındaki hepsi, kesilirse devam eder
 python -m rad combine                     # özet tabloları yeniden üretir
 python -m rad dataset                     # klinik + etiket + radyomik -> data/features/dataset.csv
+python -m rad select                      # seçim zincirinin tüm veride neyi tuttuğunu gösterir (yalnızca inceleme)
 pytest
 ```
 
@@ -59,6 +60,12 @@ pytest
 - **Sızıntı koruması:** `Survival.time`, `deadstatus.event` ve etiket sütunu özellik olarak verilirse `LeakageError` fırlatılır.
 - **Kullanılmayanlar:** `Clinical.M.Stage` (287 hastanın 282'sinde sıfır) ve `Overall.Stage` (T ve N'den türetilmiş, bilgi eklemez).
 - **Birleştirme:** hasta kimliği ile iç birleşim. Etiketi olup radyomiği olmayan ve radyomiği olup etiketi olmayan hasta sayıları yazdırılır (kimlikler değil, yalnızca sayılar).
+
+## Özellik seçimi (rapor 4.6, `src/rad/selection.py`)
+
+Radyomik sütunlar sırayla: eksik oranı filtresi → medyan doldurma → neredeyse sabit filtresi → (ICC kararlılık filtresi, ICC tablosu verilirse) → z-skoru → korelasyon kümeleri (|ρ|>0.9; her kümeden etiketle en çok ilişkili olan kalır) → elastic-net ile en çok 15 özellik. Klinik sütunlar (`clin__*`) yalnızca doldurulur ve ölçeklenir.
+
+Hepsi scikit-learn dönüştürücüsüdür ve yalnızca `fit` sırasında öğrenir; bir eğitim katında `fit` edildiğinde test katı hiçbir aşamayı etkilemez. `python -m rad select` zinciri tüm veride çalıştırıp seçilenleri yazdırır: bu yalnızca inceleme içindir, performans tahmini değildir. Model karşılaştırması sonraki PR'larda, seçim her katta yeniden yapılarak yapılacak.
 
 ## Önceki script'e göre değişenler
 
