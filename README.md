@@ -75,7 +75,10 @@ Hepsi scikit-learn dönüştürücüsüdür ve yalnızca `fit` sırasında öğr
 - Dış döngü yalnızca performansı ölçer. Her dış eğitim kümesinde iç döngü `C` ve `l1_ratio` seçer; doldurma, ölçekleme, özellik seçimi ve model o kümede yeniden öğrenilir. Bölme hasta düzeyindedir.
 - Çıktılar (`outputs/<zaman>/`, git dışı): `metrics.csv` (AUC, dengeli doğruluk, makro-F1, Brier, ECE, duyarlılık, özgüllük; tekrarlar üzerinde ortalama ve sd), `oof_predictions.csv`, `selected_features.csv` (kat başına seçilme sıklığı), `run.json` (yapılandırma, seed, git commit, sürümler).
 - **Modeller:** elastic-net lojistik regresyon (`C`, `l1_ratio` ızgarası) ve doğrusal SVM (`C` ızgarası; olasılıklar Platt kalibrasyonuyla, `CalibratedClassifierCV`). Random forest sığ ağaçlıdır (300 ağaç, `max_depth` ve `min_samples_leaf` ızgarası). XGBoost sığ ağaçlı ve güçlü düzenlidir (200 ağaç, `max_depth` 2–3, `learning_rate` ızgarası, `reg_lambda=5`, alt örnekleme 0.8). Lojistik regresyon, SVM ve random forest sınıf ağırlıklıdır.
-- Güven aralığı, permütasyon testi ve küme karşılaştırması sonraki PR'larda; 
+- **Güven aralığı:** tekrarlar üzerinden ortalanan out-of-fold tahminlerde hasta düzeyinde bootstrap (1000 çekiliş, yüzdelik aralık); `metrics.csv`'de `auc_ci_low/high`. Yalnızca hasta örneklemesinden gelen belirsizliği ölçer; CV tekrarları arasındaki oynaklık `auc_sd` sütunundadır.
+- **Permütasyon testi:** `--permutations N` etiketleri karıştırıp **bütün boru hattını** (seçim dahil) N kez yeniden koşar; `permutation_p` sütunu. Null dağılım `permutation_repeats` (varsayılan 1) CV tekrarıyla üretilir, gözlenen tahminden daha gürültülüdür, bu da testi tutucu yapar. Rapor 1000 permütasyon önerir; yavaştır, son koşuya bırakın.
+- **Küme karşılaştırması:** `comparisons.csv`, aynı hastalar üzerinde eşli bootstrap ile AUC farkı, %95 aralığı ve p değeri; Holm düzeltmeli `p_holm`. Karşılaştırmalar: M1–M0 (klinik önselden iyi mi?), M2–M1 (BT radyomiği klinikten iyi mi?), M5–M2 (periferi katkı sağlıyor mu?), M5–M1, M6–M5 (klinik ek katkı sağlıyor mu?), M6–M1. İlgili kümeler çalışmadıysa (ör. radyomik yok) o karşılaştırma yapılmaz.
+- Denenen **bütün** yapılandırmalar `metrics.csv`'ye yazılır (raporlama kuralı: yalnızca en iyisi değil).
 
 ## Önceki script'e göre değişenler
 

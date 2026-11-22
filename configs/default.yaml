@@ -97,4 +97,6 @@ validation:
   outer_folds: 5
   repeats: 10                             # report suggests 20 for the final run
   inner_folds: 3
+  bootstrap: 1000                         # resamples for confidence intervals and paired differences
+  permutation_repeats: 1                  # CV repeats per shuffled-label run
   n_jobs: -1

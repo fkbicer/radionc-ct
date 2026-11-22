@@ -3,7 +3,18 @@
 import numpy as np
 import pytest
 
-from rad.validation import compute_metrics, expected_calibration_error, run_nested_cv, summarize
+from sklearn.metrics import roc_auc_score
+
+from rad.validation import (
+    bootstrap_ci,
+    compute_metrics,
+    expected_calibration_error,
+    holm,
+    paired_bootstrap_auc,
+    permutation_test,
+    run_nested_cv,
+    summarize,
+)
 from tests.conftest import make_cohort
 
 
@@ -60,7 +71,42 @@ def test_metrics_are_sane():
 
 
 def test_xgboost_is_usable_when_installed(config, cohort):
-    pytest.importorskip("xgboost")
+    try:
+        import xgboost  # noqa: F401
+    except Exception as exc:  # package missing, or its OpenMP runtime missing (macOS: brew install libomp)
+        pytest.skip(f"xgboost is not usable here: {type(exc).__name__}")
     X, y = cohort
     auc, _, _ = _auc(config, X, y, "xgboost")
     assert auc > 0.7
+
+
+def test_bootstrap_interval_contains_the_estimate(config, cohort):
+    X, y = cohort
+    _, pooled, _ = _auc(config, X, y, "logreg")
+    lo, hi = bootstrap_ci(y, pooled, n=300)
+    assert lo < roc_auc_score(y, pooled) < hi
+
+
+def test_paired_bootstrap_separates_signal_from_noise():
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 2, 300)
+    good = y * 0.8 + rng.normal(size=300) * 0.5
+    bad = rng.normal(size=300)
+    diff, lo, hi, p = paired_bootstrap_auc(y, good, bad, n=400)
+    assert diff > 0.2 and lo > 0 and p < 0.05
+    _, _, _, p_same = paired_bootstrap_auc(y, good, good + 1e-9, n=200)
+    assert p_same >= 0.0
+
+
+def test_holm_is_monotone_and_bounded():
+    adj = holm([0.01, 0.04, 0.03, 0.5])
+    assert adj == pytest.approx([0.04, 0.09, 0.09, 0.5])
+    assert max(adj) <= 1.0
+
+
+def test_permutation_test_p_value_ranges(config):
+    X, y = make_cohort(n=100, n_noise=30, signal=1.5, seed=5)
+    config["validation"].update(repeats=1, outer_folds=3)
+    auc, _, _ = _auc(config, X, y, "logreg")
+    p, null = permutation_test(X, y, "logreg", config, None, auc, n_perm=6, seed=1)
+    assert p <= 2 / 7 and 0.3 < null.mean() < 0.7
