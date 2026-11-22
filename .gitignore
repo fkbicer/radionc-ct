@@ -15,6 +15,9 @@ data/masks/**
 !data/masks/**/
 !data/masks/**/.gitkeep
 
+# Derived feature tables stay local (report 7.3: the repository holds code only).
+data/features/**
+
 *.dcm
 *.DCM
 *.dicom
@@ -25,3 +28,5 @@ data/masks/**
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+*.egg-info/

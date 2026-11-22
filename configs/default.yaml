@@ -1,0 +1,56 @@
+# Extraction settings. Paths are relative to the project root.
+# Report references: 4.2 DICOM, 4.3 preprocessing, 4.4 radiomic extraction, Appendix B.
+
+paths:
+  raw_root: data/raw                      # data/raw/<patient_id>/inbox/*.dcm
+  features_dir: data/features             # extraction output (git-ignored)
+
+dicom:
+  inbox_subdir: inbox
+  # Header audit (report FR3): processing stops if a patient does not match.
+  patient_id_pattern: '^(P\d{3}|LUNG1-\d{3})$'
+  must_be_empty_tags:
+    - PatientBirthDate
+    - PatientAddress
+    - PatientTelephoneNumbers
+    - OtherPatientIDs
+  missing_slice: interpolate              # interpolate | air
+
+# ROI names are matched exactly after lower-casing and dropping punctuation.
+rois:
+  gtv:
+    aliases: [gtv, gtv1]
+  periphery:
+    aliases: [peritumoralspace, periphery]
+    derive_from: gtv                      # used when no contour is found
+    margin_mm: 5
+    exclude: gtv                          # ring only: GTV and periphery never overlap
+
+audit:
+  min_volume_cm3: 0.5
+  max_volume_cm3: 800
+  max_off_plane_fraction: 0.05
+
+radiomics:
+  # Passed to PyRadiomics as-is (report Appendix B). binWidth is in HU for CT.
+  params:
+    setting:
+      binWidth: 25
+      resampledPixelSpacing: [2, 2, 2]
+      interpolator: sitkBSpline
+      label: 1
+      correctMask: true
+      preCrop: true
+    imageType:
+      Original: {}
+      # ablation (report 4.4): enable the next two lines
+      # Wavelet: {}
+      # LoG: {sigma: [1.0, 2.0, 3.0]}
+    featureClass:
+      shape:
+      firstorder:
+      glcm:
+      glrlm:
+      glszm:
+      ngtdm:
+      gldm:

@@ -1,5 +1,8 @@
 numpy>=1.23,<2
+pandas>=1.5
+scipy>=1.9
 pydicom>=2.4
 pyradiomics==3.0.1
-pandas>=1.5
-Pillow>=9
+SimpleITK>=2.2
+PyYAML>=6
+pytest>=7
