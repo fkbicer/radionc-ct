@@ -47,6 +47,9 @@ def main(argv=None):
 
     p = sub.add_parser("report", help="HTML report of a run")
     p.add_argument("--run")
+    p = sub.add_parser("quality", help="CT contour review sheets and held-out calibration tables")
+    p.add_argument("--run", required=True)
+    p.add_argument("--patients", default="LUNG1-001,LUNG1-003,LUNG1-005,LUNG1-006,LUNG1-007,LUNG1-008,LUNG1-009,LUNG1-010,LUNG1-011,LUNG1-012,LUNG1-014,LUNG1-017,LUNG1-020,LUNG1-021,LUNG1-023,LUNG1-025,LUNG1-026,LUNG1-029,LUNG1-030,LUNG1-031")
 
     args = parser.parse_args(argv)
     cfg = load_config(args.config)
@@ -113,6 +116,13 @@ def main(argv=None):
         from .report import build_report
 
         print(build_report(Path(args.run) if args.run else _latest_run(cfg)))
+    elif args.command == "quality":
+        from .quality import calibration_summary, contour_review
+
+        out = Path(args.run)
+        summary = calibration_summary(out)
+        print(summary[["set", "model", "brier", "brier_skill_vs_prevalence", "calibration_slope"]].to_string(index=False))
+        print("contour review:", contour_review(cfg, args.patients.split(","), out / "contour_review"))
 
 
 if __name__ == "__main__":

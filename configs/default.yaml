@@ -5,7 +5,7 @@ seed: 42
 
 paths:
   raw_root: data/raw                      # data/raw/<patient_id>/inbox/*.dcm
-  features_dir: data/features             # extraction output (git-ignored)
+  features_dir: data/features             # pseudonymized extraction output (may be versioned)
   clinical_csv: lung1_stage3_cohort.csv
   outputs_dir: outputs                    # one sub-folder per run (git-ignored)
 

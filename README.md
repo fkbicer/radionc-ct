@@ -40,10 +40,13 @@ python -m rad select                      # seçim zincirinin tüm veride neyi t
 python -m rad run                         # model merdiveni x modeller, tekrarlı iç içe CV -> outputs/<zaman>/ (+ report.html)
 python -m rad explain --set M6 --model logreg   # katsayılar / SHAP
 python -m rad report                      # son koşunun report.html dosyasını yeniden üretir
+python -m rad quality --run outputs/<zaman> # kalibrasyon CSV'leri ve 20 hastanın kontur inceleme görselleri
 pytest
 ```
 
 `extract` bittiğinde önce `data/features/audit.csv` dosyasına bakın: sorunlu hastalar özellik matrisine girmez ve gerekçesiyle burada listelenir.
+
+`quality` mevcut out-of-fold tahminlerden `calibration_summary.csv` ve `calibration_bins.csv` üretir. `contour_review/` içinde GTV (kırmızı) ve türetilmiş 5 mm halka (turkuaz) CT üstünde gösterilir; `review.csv` dosyasındaki `reviewed_visually` alanı, uzman incelemesi yapılana kadar `False` kalır. Görseller DICOM'dan türetildiği için `outputs/` altında kalır ve Git'e girmez. Komut kalibrasyon analizi yapar; modele yeni eğitim uygulamaz. Mevcut küre ve sabit yoğunluk fantom testleri resmi IBSI referans fantomu karşılaştırmasının yerine geçmez.
 
 ## Ne yapar (rapor 4.2–4.4)
 

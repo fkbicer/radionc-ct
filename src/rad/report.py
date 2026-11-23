@@ -87,6 +87,13 @@ def build_report(out_dir):
     if best is not None:
         parts += [f"<h2>Calibration and decision curve: {best['set']} / {best['model']}</h2>",
                   f'<img src="{_calibration_and_dca(oof, best)}">']
+    calibration_path = out_dir / "calibration_summary.csv"
+    if calibration_path.exists():
+        calibration = pd.read_csv(calibration_path)
+        parts += ["<h2>Held-out calibration summary</h2>",
+                  "<p>Positive Brier skill improves on a constant prevalence prediction. "
+                  "Calibration slope near 1 is desirable; these descriptive estimates use the same held-out patients.</p>",
+                  _table(calibration)]
     if len(comparisons):
         parts += ["<h2>Does a richer input set add anything? (paired bootstrap, Holm-adjusted)</h2>", _table(comparisons, "{:.4f}")]
     if len(selected) and best is not None:
