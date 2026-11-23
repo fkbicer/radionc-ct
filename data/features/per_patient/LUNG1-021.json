@@ -1,0 +1,13 @@
+{
+  "patient_id": "LUNG1-021",
+  "status": "ok",
+  "problems": [],
+  "gtv_cm3": 216.96,
+  "gtv_source": "contour",
+  "periphery_cm3": 112.688,
+  "periphery_source": "derived",
+  "n_missing_slices": 1,
+  "n_ct_slices": 197,
+  "unreadable_ct_slices": 0,
+  "spacing_xyz": "0.977x0.977x3"
+}

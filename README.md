@@ -1,6 +1,6 @@
 # radionc-ct
 
-Tedavi öncesi planlama BT'sinden radyomik özellik çıkarımı ve klinik değişkenlerle birleştirme. Hasta klasörleri çalışma kimliği taşır (`P001`, `LUNG1-001`); ad, protokol numarası veya doğum tarihi klasör adına yazılmaz. Hasta görüntüleri ve türetilmiş tablolar git'e girmez.
+Tedavi öncesi planlama BT'sinden radyomik özellik çıkarımı ve klinik değişkenlerle birleştirme. Hasta klasörleri çalışma kimliği taşır (`P001`, `LUNG1-001`); ad, protokol numarası veya doğum tarihi klasör adına yazılmaz. Ham hasta görüntüleri git'e girmez; anonim çalışma kimliği taşıyan türetilmiş özellik tabloları sürümlenebilir.
 
 ## Nereye koyulur
 
@@ -15,7 +15,7 @@ Bu klasör kasıtlı olarak karışıktır: CT kesitleri ve kontur dosyası ayn�
 ```text
 data/
   raw/<id>/inbox/          gelen DICOM, olduğu gibi
-  features/                extract çıktısı (git dışı)
+  features/                anonimleştirilmiş extract/dataset çıktıları (Git'e eklenebilir)
     per_patient/           hasta başına özellik satırı ve denetim kaydı
     radiomics_wide.csv     hasta başına bir satır
     audit.csv              her hastanın durumu ve sorunları
@@ -56,7 +56,7 @@ pytest
 
 ## Klinik veri ve etiket (rapor 4.5, FR7)
 
-`lung1_stage3_cohort.csv` (yolu `paths.clinical_csv`) hasta başına bir satır; `python -m rad dataset` onu radyomikle birleştirip `data/features/dataset.csv` yazar (git dışı) ve sayıları yazdırır. Radyomik henüz çıkarılmadıysa yalnızca klinik sütunlar yazılır.
+`lung1_stage3_cohort.csv` (yolu `paths.clinical_csv`) hasta başına bir satır; `python -m rad dataset` onu radyomikle birleştirip `data/features/dataset.csv` yazar ve sayıları yazdırır. Radyomik henüz çıkarılmadıysa yalnızca klinik sütunlar yazılır.
 
 - **Özellikler:** yaş, T, N, cinsiyet, histoloji; sütunlar `clin__*`, radyomik sütunlar `<roi>__*`. Eksik değerler bu aşamada **doldurulmaz**; eğitim katında doldurulacaktır.
 - **Etiket:** `label_2yr` (1 = 730 günden önce öldü, 0 = 730 günden uzun izlendi). Etiket, `Survival.time` ve `deadstatus.event` ile yeniden hesaplanıp karşılaştırılır; çelişki varsa koşu durur. 730 günden önce sansürlenen hasta etiketlenemez ve dışarıda kalır (Lung1 stage III'te böyle hasta yok).

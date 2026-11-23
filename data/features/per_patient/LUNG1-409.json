@@ -1,0 +1,7 @@
+{
+  "patient_id": "LUNG1-409",
+  "status": "failed",
+  "problems": [
+    "DataError: No CT slices in data/raw/LUNG1-409/inbox"
+  ]
+}

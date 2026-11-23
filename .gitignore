@@ -1,4 +1,8 @@
 # Patient imaging can contain identifiers. Keep the folders, never the pixels.
+# Explicit rules for organized inboxes and files commonly shipped with DICOM exports.
+data/raw/*/inbox/**
+data/raw/**/DICOMDIR
+data/raw/**/LICENSE
 data/raw/**
 data/sorted/**
 data/masks/**
@@ -15,8 +19,7 @@ data/masks/**
 !data/masks/**/
 !data/masks/**/.gitkeep
 
-# Derived feature tables stay local (report 7.3: the repository holds code only).
-data/features/**
+# Derived, pseudonymized feature tables may be versioned; model run artifacts stay local.
 outputs/**
 
 *.dcm
@@ -31,3 +34,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+.DS_Store
