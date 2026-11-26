@@ -1,100 +1,71 @@
 # radionc-ct
 
-Tedavi öncesi planlama BT'sinden radyomik özellik çıkarımı ve klinik değişkenlerle birleştirme. Hasta klasörleri çalışma kimliği taşır (`P001`, `LUNG1-001`); ad, protokol numarası veya doğum tarihi klasör adına yazılmaz. Ham hasta görüntüleri git'e girmez; anonim çalışma kimliği taşıyan türetilmiş özellik tabloları sürümlenebilir.
+Radiomics from treatment-planning CT, combined with clinical variables, to predict outcome in lung cancer. The pipeline is built and tested on the public TCIA Lung1 (NSCLC-Radiomics) stage III cohort (286 patients analysed, target: death within 2 years). The same pipeline is meant for hospital CT data, where the target becomes a three-class problem: no metastasis, oligometastatic, polymetastatic.
 
-## Nereye koyulur
+Raw patient images never enter git. Folders carry a study ID only (`P001`, `LUNG1-001`); no name, protocol number or birth date. Derived, pseudonymized feature tables may be versioned.
 
-Bir hastanın elindeki bütün `.dcm` dosyaları, ayrıştırmadan:
+## Pipeline
 
-`data/raw/P001/inbox/`
+1. **Extract** (`rad extract`): the largest CT series and its RTSTRUCT are read, HU converted, masks built for the tumor (GTV) and a 5 mm ring around it (ring excludes the GTV), then PyRadiomics computes 107 features per region (shape, firstorder, GLCM, GLRLM, GLSZM, NGTDM, GLDM; original image, 2 mm resampling, `binWidth=25`). Total: 214 features per patient. Settings live in `configs/default.yaml`.
+2. **Dataset** (`rad dataset`): joins radiomics, 5 clinical variables (age, sex, T stage, N stage, histology; 9 columns) and the label `label_2yr`. Survival time, event and label are never used as features (`LeakageError`).
+3. **Selection** (inside every training fold): missing-rate filter, near-constant filter, correlation clusters (|rho| > 0.9, keep one per cluster), then elastic net keeps at most 15 radiomic features. Clinical columns are imputed and scaled only.
+4. **Models and validation** (`rad run`): logistic regression, linear SVM, random forest and XGBoost on five feature sets (M0 baseline, M1 clinical, M2 GTV, M5 GTV + ring, M6 M5 + clinical). Repeated stratified nested cross-validation (5 folds x 10 repeats, inner 3 folds), split by patient. Bootstrap confidence intervals, paired bootstrap with Holm correction for set comparisons, optional permutation test (`--permutations N`).
 
-Bu klasör kasıtlı olarak karışıktır: CT kesitleri ve kontur dosyası aynı uzantıyı kullanır, dosya adı bir şey söylemez. Alt klasör olabilir.
+## Results (Lung1, stage III)
 
-## Klasörler
+Mean out-of-fold AUC over 5 x 10 nested CV:
+
+| Set | Logistic | SVM | Random forest | XGBoost |
+|---|---|---|---|---|
+| M0 baseline | 0.491 | | | |
+| M1 clinical | 0.491 | 0.475 | 0.527 | 0.569 |
+| M2 GTV | 0.579 | 0.581 | 0.583 | 0.574 |
+| M5 GTV + ring | 0.595 | 0.596 | **0.606** | 0.582 |
+| M6 M5 + clinical | 0.591 | 0.588 | **0.606** | 0.593 |
+
+- Best: random forest on M5, AUC 0.606 (95% CI 0.550-0.686). Clinical data alone is near chance.
+- Adding the ring (M5 - M2, +0.021) or clinical data (M6 - M5, +0.001) gave no demonstrable gain; both intervals include zero.
+- Most selected features: ring NGTDM Strength (98% of folds), ring first-order Maximum (90%), GTV GLDM Large Dependence Low Gray Level (86%).
+- Caveats: the best value is the maximum over 17 configurations (optimistic), there is no independent validation, and the permutation test was not run. Lung1 contains CT only (no PET).
+
+## Where things are
 
 ```text
 data/
-  raw/<id>/inbox/          gelen DICOM, olduğu gibi
-  features/                anonimleştirilmiş extract/dataset çıktıları (Git'e eklenebilir)
-    per_patient/           hasta başına özellik satırı ve denetim kaydı
-    radiomics_wide.csv     hasta başına bir satır
-    audit.csv              her hastanın durumu ve sorunları
-  sorted/, masks/          iskelet (git'te .gitkeep olarak durur)
-  metadata/patients.csv    kimlik içermeyen hasta listesi
+  raw/<id>/inbox/        incoming DICOM, untouched (git-ignored)
+  features/              pseudonymized outputs (versioned)
+    radiomics_wide.csv   one row per patient, 214 radiomic columns
+    dataset.csv          radiomics + clinical + label (model input)
+    audit.csv            status and problems of every patient
+    per_patient/         per-patient feature rows
+outputs/<timestamp>/     run results, git-ignored: metrics.csv, comparisons.csv,
+                         selected_features.csv, oof_predictions.csv, report.html, run.json
+lung1_stage3_cohort.csv  clinical table of the stage III cohort
 ```
 
-## Çalıştırma
+## Usage
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install "numpy>=1.23,<2" wheel
-pip install -r requirements.txt --no-build-isolation   # pyradiomics derlemesi için
+pip install -r requirements.txt --no-build-isolation   # pyradiomics needs it
 pip install -e .
 
-python -m rad extract --patients P001     # önce tek hasta
-python -m rad extract --workers 4         # data/raw altındaki hepsi, kesilirse devam eder
-python -m rad combine                     # özet tabloları yeniden üretir
-python -m rad dataset                     # klinik + etiket + radyomik -> data/features/dataset.csv
-python -m rad select                      # seçim zincirinin tüm veride neyi tuttuğunu gösterir (yalnızca inceleme)
-python -m rad run                         # model merdiveni x modeller, tekrarlı iç içe CV -> outputs/<zaman>/ (+ report.html)
-python -m rad explain --set M6 --model logreg   # katsayılar / SHAP
-python -m rad report                      # son koşunun report.html dosyasını yeniden üretir
-python -m rad quality --run outputs/<zaman> # kalibrasyon CSV'leri ve 20 hastanın kontur inceleme görselleri
+python -m rad extract --workers 4      # DICOM -> features (resumable); check data/features/audit.csv
+python -m rad dataset                  # clinical + label + radiomics -> data/features/dataset.csv
+python -m rad select                   # what the selection chain keeps on all data (inspection only)
+python -m rad run                      # model ladder x models, nested CV -> outputs/<timestamp>/
+python -m rad explain --set M6 --model logreg   # coefficients / SHAP
+python -m rad report                   # rebuild report.html of the last run
+python -m rad quality --run outputs/<timestamp> # calibration tables, contour review images
 pytest
 ```
 
-`extract` bittiğinde önce `data/features/audit.csv` dosyasına bakın: sorunlu hastalar özellik matrisine girmez ve gerekçesiyle burada listelenir.
+`quality` writes calibration tables and contour overlays (GTV red, ring teal) into the run folder; images are derived from DICOM and stay out of git. `reviewed_visually` in `review.csv` stays `False` until an expert has checked them.
 
-`quality` mevcut out-of-fold tahminlerden `calibration_summary.csv` ve `calibration_bins.csv` üretir. `contour_review/` içinde GTV (kırmızı) ve türetilmiş 5 mm halka (turkuaz) CT üstünde gösterilir; `review.csv` dosyasındaki `reviewed_visually` alanı, uzman incelemesi yapılana kadar `False` kalır. Görseller DICOM'dan türetildiği için `outputs/` altında kalır ve Git'e girmez. Komut kalibrasyon analizi yapar; modele yeni eğitim uygulamaz. Mevcut küre ve sabit yoğunluk fantom testleri resmi IBSI referans fantomu karşılaştırmasının yerine geçmez.
+## Notes
 
-## Ne yapar (rapor 4.2–4.4)
-
-- Planlama BT'si, inbox'taki en büyük CT serisi olarak seçilir. RTSTRUCT, aynı referans çerçevesine bakan dosyadır.
-- **Kimlik denetimi:** PatientID izin verilen desene (`dicom.patient_id_pattern`) uymazsa ya da doğum tarihi/adres gibi alanlar doluysa işlem durur, hasta `audit.csv`'ye yazılır.
-- **HU:** Kesit başına eğim/kesişimle dönüştürülür. Okunamayan kesitler komşularından doldurulur (`dicom.missing_slice`) ve sayısı `audit.csv`'de görünür. Önceki script bu kesitleri hava olarak bırakıyordu.
-- **Konturlar:** ROI adları normalize edilip birebir eşlenir (`Lung-GTV` ≠ `GTV`). Periferi konturu yoksa GTV'den 5 mm halka türetilir; halka GTV'yi içermez. İç içe poligonlar delik olarak işlenir.
-- **Maske denetimi:** boş maske, hacim aralığı, kesit ızgarası dışında kalan poligonlar, GTV–periferi çakışması.
-- **PyRadiomics:** shape, firstorder, GLCM, GLRLM, GLSZM, NGTDM, GLDM; 2 mm izotropik B-spline yeniden örnekleme, `binWidth=25`. Hepsi `configs/default.yaml` içinde (rapor Ek B). Sütunlar `<roi>__<özellik>`.
-
-## Klinik veri ve etiket (rapor 4.5, FR7)
-
-`lung1_stage3_cohort.csv` (yolu `paths.clinical_csv`) hasta başına bir satır; `python -m rad dataset` onu radyomikle birleştirip `data/features/dataset.csv` yazar ve sayıları yazdırır. Radyomik henüz çıkarılmadıysa yalnızca klinik sütunlar yazılır.
-
-- **Özellikler:** yaş, T, N, cinsiyet, histoloji; sütunlar `clin__*`, radyomik sütunlar `<roi>__*`. Eksik değerler bu aşamada **doldurulmaz**; eğitim katında doldurulacaktır.
-- **Etiket:** `label_2yr` (1 = 730 günden önce öldü, 0 = 730 günden uzun izlendi). Etiket, `Survival.time` ve `deadstatus.event` ile yeniden hesaplanıp karşılaştırılır; çelişki varsa koşu durur. 730 günden önce sansürlenen hasta etiketlenemez ve dışarıda kalır (Lung1 stage III'te böyle hasta yok).
-- **Sızıntı koruması:** `Survival.time`, `deadstatus.event` ve etiket sütunu özellik olarak verilirse `LeakageError` fırlatılır.
-- **Kullanılmayanlar:** `Clinical.M.Stage` (287 hastanın 282'sinde sıfır) ve `Overall.Stage` (T ve N'den türetilmiş, bilgi eklemez).
-- **Birleştirme:** hasta kimliği ile iç birleşim. Etiketi olup radyomiği olmayan ve radyomiği olup etiketi olmayan hasta sayıları yazdırılır (kimlikler değil, yalnızca sayılar).
-
-## Özellik seçimi (rapor 4.6, `src/rad/selection.py`)
-
-Radyomik sütunlar sırayla: eksik oranı filtresi → medyan doldurma → neredeyse sabit filtresi → (ICC kararlılık filtresi, ICC tablosu verilirse) → z-skoru → korelasyon kümeleri (|ρ|>0.9; her kümeden etiketle en çok ilişkili olan kalır) → elastic-net ile en çok 15 özellik. Klinik sütunlar (`clin__*`) yalnızca doldurulur ve ölçeklenir.
-
-Hepsi scikit-learn dönüştürücüsüdür ve yalnızca `fit` sırasında öğrenir; bir eğitim katında `fit` edildiğinde test katı hiçbir aşamayı etkilemez. `python -m rad select` zinciri tüm veride çalıştırıp seçilenleri yazdırır: bu yalnızca inceleme içindir, performans tahmini değildir. Model karşılaştırması sonraki PR'larda, seçim her katta yeniden yapılarak yapılacak.
-
-## Model ve doğrulama (rapor 4.7–4.8) — lojistik regresyon, doğrusal SVM, random forest, XGBoost
-
-`python -m rad run` her merdiven kümesi (M0 önsel, M1 klinik, M2 GTV, M5 GTV+periferi, M6 hepsi) için elastic-net lojistik regresyonu **tekrarlı, katmanlı, iç içe çapraz doğrulama** ile değerlendirir (5 kat × 10 tekrar, `configs/default.yaml`). Radyomik henüz çıkarılmadıysa yalnızca radyomik grubu gerektirmeyen kümeler (M0, M1) çalışır; eksik gruplu küme başka adla değil, atlanarak geçilir.
-
-- Dış döngü yalnızca performansı ölçer. Her dış eğitim kümesinde iç döngü `C` ve `l1_ratio` seçer; doldurma, ölçekleme, özellik seçimi ve model o kümede yeniden öğrenilir. Bölme hasta düzeyindedir.
-- Çıktılar (`outputs/<zaman>/`, git dışı): `metrics.csv` (AUC, dengeli doğruluk, makro-F1, Brier, ECE, duyarlılık, özgüllük; tekrarlar üzerinde ortalama ve sd), `oof_predictions.csv`, `selected_features.csv` (kat başına seçilme sıklığı), `run.json` (yapılandırma, seed, git commit, sürümler).
-- **Modeller:** elastic-net lojistik regresyon (`C`, `l1_ratio` ızgarası) ve doğrusal SVM (`C` ızgarası; olasılıklar Platt kalibrasyonuyla, `CalibratedClassifierCV`). Random forest sığ ağaçlıdır (300 ağaç, `max_depth` ve `min_samples_leaf` ızgarası). XGBoost sığ ağaçlı ve güçlü düzenlidir (200 ağaç, `max_depth` 2–3, `learning_rate` ızgarası, `reg_lambda=5`, alt örnekleme 0.8). Lojistik regresyon, SVM ve random forest sınıf ağırlıklıdır.
-- **Güven aralığı:** tekrarlar üzerinden ortalanan out-of-fold tahminlerde hasta düzeyinde bootstrap (1000 çekiliş, yüzdelik aralık); `metrics.csv`'de `auc_ci_low/high`. Yalnızca hasta örneklemesinden gelen belirsizliği ölçer; CV tekrarları arasındaki oynaklık `auc_sd` sütunundadır.
-- **Permütasyon testi:** `--permutations N` etiketleri karıştırıp **bütün boru hattını** (seçim dahil) N kez yeniden koşar; `permutation_p` sütunu. Null dağılım `permutation_repeats` (varsayılan 1) CV tekrarıyla üretilir, gözlenen tahminden daha gürültülüdür, bu da testi tutucu yapar. Rapor 1000 permütasyon önerir; yavaştır, son koşuya bırakın.
-- **Küme karşılaştırması:** `comparisons.csv`, aynı hastalar üzerinde eşli bootstrap ile AUC farkı, %95 aralığı ve p değeri; Holm düzeltmeli `p_holm`. Karşılaştırmalar: M1–M0 (klinik önselden iyi mi?), M2–M1 (BT radyomiği klinikten iyi mi?), M5–M2 (periferi katkı sağlıyor mu?), M5–M1, M6–M5 (klinik ek katkı sağlıyor mu?), M6–M1. İlgili kümeler çalışmadıysa (ör. radyomik yok) o karşılaştırma yapılmaz.
-- Denenen **bütün** yapılandırmalar `metrics.csv`'ye yazılır (raporlama kuralı: yalnızca en iyisi değil).
-
-## Önceki script'e göre değişenler
-
-- **Kontur doldurma düzeltildi.** Eski yöntem (PIL poligon) sınır piksellerini de dolduruyordu; bu, hacmi yaklaşık %9 şişiriyor ve şekil özelliklerini bozuyordu. Artık piksel merkezi poligonun içindeyse maskeye girer (fantom testinde teorik hacimden %2'den az sapar).
-- Tek hasta yerine klasördeki bütün hastalar; sabit `P001` kaldırıldı. Kesilen koşu kaldığı yerden devam eder.
-- Yalnızca shape/firstorder/GLCM değil, rapordaki yedi sınıf.
-- Ayarlar koddan YAML'a taşındı.
-- Seri/RTSTRUCT seçimi dosya adına değil başlık bilgisine göre yapılır.
-
-`data/metadata/P001_radiomics.csv` eski yöntemle üretilmişti; yeni çıktıyla değerleri farklı olacaktır.
-
-## Testler
-
-`pytest`: HU dönüşümü, piksel↔mm dönüşümü, fantom küre hacmi, iç içe poligon, halka kalınlığı, kimlik denetimi, ROI adı eşleme, hasta keşfi ve tablo birleştirme. Klinik tablo, etiket kuralı, sızıntı koruması, birleştirme ve gerçek Lung1 tablosunun kontrolü de test edilir. PyRadiomics fantom testleri (küre hacmi, sabit bölgede entropi 0) `pyradiomics` ve `SimpleITK` kuruluysa çalışır, değilse atlanır. DICOM okuma gerçek veriyle denenmelidir.
+- Contours are rasterised by pixel centre (the old PIL polygon fill inflated volumes by about 9%).
+- Missing CT slices are interpolated from neighbours (`dicom.missing_slice`) and counted in `audit.csv`.
+- Wavelet and LoG features are off by default (enable in `configs/default.yaml`) and were not part of the results above.
+- Tests cover HU conversion, geometry, phantom volume, ring thickness, ID audit, ROI matching, label rules, leakage guard and table joins. PyRadiomics phantom tests need `pyradiomics` and `SimpleITK`. DICOM reading should still be checked on real data.
